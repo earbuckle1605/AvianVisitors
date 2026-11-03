@@ -54,7 +54,7 @@ if [[ ! -z $PACKAGES_MISSING ]] ; then
   sudo apt -y install $PACKAGES_MISSING
 fi
 
-branch=avian-visitors
+branch=birds-1605
 repository=https://github.com/earbuckle1605/AvianVisitors.git
 install_dir="$HOME/BirdNET-Pi"
 if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
