@@ -55,7 +55,7 @@ if [[ ! -z $PACKAGES_MISSING ]] ; then
 fi
 
 branch=avian-visitors
-repository=https://github.com/Twarner491/AvianVisitors.git
+repository=https://github.com/earbuckle1605/AvianVisitors.git
 install_dir="$HOME/BirdNET-Pi"
 if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
   echo "Cannot resume automatically: $install_dir already exists and may contain an older installer that resets detections." >&2
