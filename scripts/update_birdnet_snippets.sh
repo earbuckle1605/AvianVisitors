@@ -22,9 +22,9 @@ trusted_git() {
     git -C "$trusted_repo" "$@"
 }
 trusted_git init --bare -q
-trusted_git fetch --no-tags https://github.com/earbuckle1605/birds-1605.git \
-  refs/heads/avian-visitors:refs/heads/avian-visitors
-verified_head=$(trusted_git rev-parse --verify 'refs/heads/avian-visitors^{commit}')
+trusted_git fetch --no-tags https://github.com/earbuckle1605/AvianVisitors.git \
+  refs/heads/avian-birds-1605:refs/heads/birds-1605
+verified_head=$(trusted_git rev-parse --verify 'refs/heads/birds-1605^{commit}')
 trusted_git show "$verified_head:scripts/bootstrap_v1.sh" >"$work_dir/bootstrap.sh"
 bash -n "$work_dir/bootstrap.sh"
 bash "$work_dir/bootstrap.sh"
