@@ -138,10 +138,10 @@ git -C "$seed" commit -qm release-three
 release_three=$(git -C "$seed" rev-parse HEAD)
 
 git clone -q --bare "$seed" "$remote"
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_two"
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_two"
 git -C "$remote" symbolic-ref HEAD refs/heads/main
 git clone -q --bare "$seed" "$missing_remote"
-git -C "$missing_remote" update-ref -d refs/heads/avian-visitors
+git -C "$missing_remote" update-ref -d refs/heads/birds-1605
 git -C "$missing_remote" symbolic-ref HEAD refs/heads/main
 chmod -R a+rX "$remote" "$missing_remote"
 
@@ -421,7 +421,7 @@ expect_success 'tampered default refspec'
   || fail 'default refspec redirected the release fetch'
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" \
   config --get-all remote.origin.fetch)" \
-  = '+refs/heads/avian-visitors:refs/remotes/origin/avian-visitors' ] \
+  = '+refs/heads/birds-1605:refs/remotes/origin/avian-visitors' ] \
   || fail 'tampered default refspec survived the verified update'
 
 setup_case wrapperauto release-one
@@ -637,7 +637,7 @@ grep -qx 'local German shared cutout' \
 # tracking a formerly unique Swiss file. It also reshapes an unoverridden
 # official illustration. Local assets remain active, while the restored full
 # geometry snapshot must be rebuilt for that changed official image.
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_three"
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_three"
 rm -f /tmp/avian-update-rebuild-called
 expect_success 'subsequent update with regional overrides'
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" rev-parse HEAD)" \
@@ -667,17 +667,17 @@ subsequent_generation_revision=$(generation_revision) \
   || fail 'subsequent update did not publish a valid cache revision'
 [ "$subsequent_generation_revision" != "$legacy_generation_revision" ] \
   || fail 'subsequent art update reused its prior cache revision'
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_two"
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_two"
 
 # Model a legacy Pi that first cloned main at depth one, then shallow-fetched
 # an early AvianVisitors release. Both boundaries remain in .git/shallow, so a
 # normal fetch of a later release cannot prove that main is its ancestor.
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_one"
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_one"
 setup_case shallowlegacy main "$remote" shallow-main
 as_station "$station_user" "$station_home" git -C "$repo_dir" fetch -q \
   --no-tags --depth=1 origin \
-  refs/heads/avian-visitors:refs/remotes/origin/avian-visitors
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_two"
+  refs/heads/birds-1605:refs/remotes/origin/avian-visitors
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_two"
 [ "$(as_station "$station_user" "$station_home" \
   git -C "$repo_dir" rev-parse --is-shallow-repository)" = true ] \
   || fail 'shallow legacy fixture is not shallow'
@@ -703,7 +703,7 @@ expect_success 'shallow legacy migration'
   || fail 'shallow legacy migration did not reach the fetched release commit'
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" \
   config --get-all remote.origin.fetch)" \
-  = '+refs/heads/avian-visitors:refs/remotes/origin/avian-visitors' ] \
+  = '+refs/heads/birds-1605:refs/remotes/origin/birds-1605' ] \
   || fail 'shallow legacy migration did not constrain its future fetches'
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" \
   rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" \
@@ -732,7 +732,7 @@ rm -f /usr/local/bin/git
   git -C "$repo_dir" branch --show-current)" = main ] \
   || fail 'fetch mapping failure did not restore main'
 if as_station "$station_user" "$station_home" git -C "$repo_dir" \
-  show-ref --verify --quiet refs/heads/avian-visitors; then
+  show-ref --verify --quiet refs/heads/birds-1605; then
   fail 'fetch mapping failure left its release branch'
 fi
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" \
@@ -767,7 +767,7 @@ rm -f "$repo_dir/.git/config.lock"
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" rev-parse HEAD)" = "$rollback_head" ] \
   || fail 'failed migration moved the legacy HEAD'
 if as_station "$station_user" "$station_home" git -C "$repo_dir" \
-  show-ref --verify --quiet refs/heads/avian-visitors; then
+  show-ref --verify --quiet refs/heads/birds-1605; then
   fail 'failed migration left its newly created release branch'
 fi
 grep -qx 'restore this copy' "$repo_dir/avian/legacy.txt" \
@@ -804,7 +804,7 @@ rm -f "$repo_dir/.git/config.lock"
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" branch --show-current)" = main ] \
   || fail 'failed preexisting-branch migration did not restore main'
 [ "$(as_station "$station_user" "$station_home" git -C "$repo_dir" \
-  rev-parse refs/heads/avian-visitors)" = "$release_one" ] \
+  rev-parse refs/heads/birds-1605)" = "$release_one" ] \
   || fail 'failed migration did not restore the preexisting release ref'
 grep -qx 'existing branch masks' "$repo_dir/avian/frontend/masks.json" \
   || fail 'failed preexisting-branch migration did not restore generated data'

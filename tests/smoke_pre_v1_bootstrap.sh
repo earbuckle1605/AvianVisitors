@@ -292,14 +292,14 @@ git -C "$seed" add scripts/admin_control.sh
 git -C "$seed" commit -qm 'release after bootstrap snapshot'
 git -C "$seed" push -q "$remote" avian-visitors
 git -C "$seed" rev-parse HEAD >"$test_root/future-head"
-git -C "$remote" update-ref refs/heads/avian-visitors "$release_head"
+git -C "$remote" update-ref refs/heads/birds-1605 "$release_head"
 cat >/usr/local/bin/git <<'EOF'
 #!/usr/bin/env bash
 if [ -e /tmp/avian-pre-v1-bootstrap/fail-fetch ] && [[ " $* " = *' fetch '* ]]; then exit 71; fi
 if [[ "$*" = *avian-v1-bootstrap.* ]] && [[ " $* " = *' fetch '* ]]; then
   /usr/bin/git "$@" || exit $?
-  /usr/bin/git -C /tmp/avian-pre-v1-bootstrap/official.git update-ref refs/heads/avian-visitors "$(cat /tmp/avian-pre-v1-bootstrap/future-head)"
-  chmod 0644 /tmp/avian-pre-v1-bootstrap/official.git/refs/heads/avian-visitors
+  /usr/bin/git -C /tmp/avian-pre-v1-bootstrap/official.git update-ref refs/heads/birds-1605 "$(cat /tmp/avian-pre-v1-bootstrap/future-head)"
+  chmod 0644 /tmp/avian-pre-v1-bootstrap/official.git/refs/heads/birds-1605
   exit 0
 fi
 exec /usr/bin/git "$@"
