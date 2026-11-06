@@ -300,7 +300,7 @@ assert.match(html, /<meta name="referrer" content="no-referrer">/,
   'shared capability URLs are not sent in outbound referrers');
 
 const titleContext = {
-  VIEW_TITLES: ['Your Birds', 'Stats', 'Atlas'],
+  VIEW_TITLES: ['Our Bird Friends', 'Stats', 'Atlas'],
   effectiveEducatorScope: { id: c1, label: 'Period 3' },
   educatorScopeId() { return c1; },
   educatorScopeRouteActive() { return true; },
