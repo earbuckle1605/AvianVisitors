@@ -316,9 +316,9 @@ const titleClasses = new Set();
 let titleTimerId = 0;
 const titleTimers = new Map();
 const staleTitleContext = {
-  VIEW_TITLES: ['Heard Recently', 'Heard Recently', 'Avian Atlas'],
+  VIEW_TITLES: ['Our Friends Seen Recently', 'Our Friends Seen Recently', 'Avian Atlas'],
   effectiveEducatorScope: { id: c1, label: 'Sensitive Biology Period' },
-  staticTitle: { textContent: 'Heard Recently' },
+  staticTitle: { textContent: 'Our Friends Seen Recently' },
   staticHead: {
     offsetWidth: 100,
     classList: {
@@ -350,14 +350,14 @@ const stalePrivateTitle = titleTimers.get(staleTitleContext.titleSwapTimer);
 staleTitleContext.effectiveEducatorScope = null;
 staleTitleContext.setTitleForView(0);
 stalePrivateTitle();
-assert.equal(staleTitleContext.staticTitle.textContent, 'Heard Recently',
+assert.equal(staleTitleContext.staticTitle.textContent, 'Our Friends Seen Recently',
   'a pending private scope title cannot repaint after an auth loss clears the scope');
 assert.equal(titleClasses.has('swap-out'), false,
   'canceling a stale title swap restores the visible safe heading immediately');
 staleTitleContext.staticTitle.textContent = 'Avian Visitors';
 staleTitleContext.effectiveEducatorScope = null;
 staleTitleContext.setTitleForView(0, { immediate: true });
-assert.equal(staleTitleContext.staticTitle.textContent, 'Heard Recently',
+assert.equal(staleTitleContext.staticTitle.textContent, 'Our Friends Seen Recently',
   'an already-painted scoped title is scrubbed synchronously on auth loss');
 assert.equal(staleTitleContext.titleSwapTimer, 0,
   'the synchronous auth-loss scrub leaves no private title callback queued');
