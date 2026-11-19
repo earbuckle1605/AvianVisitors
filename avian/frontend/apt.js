@@ -739,7 +739,7 @@
       && raw.state_revision >= 0 && typeof raw.state_key === 'string'
       && /^[a-f0-9]{24}$/.test(raw.state_key);
   }
-  function lsscopedFetchJson(action, params, request) {
+  function scopedFetchJson(action, params, request) {
     request = request || educatorScopeRequest();
     if (request.generation !== educatorScopeGeneration) {
       var obsolete = new Error('stale educator scope');
