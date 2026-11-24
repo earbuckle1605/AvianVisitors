@@ -38,7 +38,7 @@ $CONF_PATH = dirname(__DIR__, 2) . '/birdnet.conf';
 
 // SITE_NAME is already public on BirdNET-Pi's legacy homepage. Read only that
 // key so the collage can share its canonical title without exposing the rest
-// of birdnet.conf, which can contain API and service credentials.
+// of birdnet.conf, which can contain API and service credentials. 
 function publicSiteName(string $path): string {
     if (!is_readable($path) || is_dir($path)) return 'BirdNET-Pi';
     $lines = @file($path, FILE_IGNORE_NEW_LINES);
