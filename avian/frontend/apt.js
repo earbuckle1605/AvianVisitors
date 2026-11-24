@@ -97,7 +97,7 @@
   // Each view's title text. The shared static-head shows one of these
   // based on the current view; identical adjacent values mean the title
   // stays put with no fade (collage and stats both say Our Friends Recently Seen).
-  var VIEW_TITLES = ['Our Friends Recent Seen', 'Our Friends Recently Seen', 'Avian Atlas'];
+  var VIEW_TITLES = ['Our Friends Recently Seen', 'Our Friends Recently Seen', 'Avian Atlas'];
   var EMPTY_WINDOW_COPY = 'no detections heard in this window';
   var staticHead = document.querySelector('.static-head');
   var staticTitle = document.getElementById('staticTitle');
