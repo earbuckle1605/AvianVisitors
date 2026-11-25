@@ -3114,6 +3114,11 @@
   function renderCollage(items, animate) {
     collage.removeAttribute('data-frame-token');
     collage.setAttribute('data-frame-revision', ++collageRenderRevision);
+    // Reuse loaded or pending images; retry failed loads on the next render.
+    var reusableImgs = {};
+    (collage.querySelectorAll ? collage.querySelectorAll('.gtile > img') : []).forEach(function (el) {
+      if (!el.complete || el.naturalWidth > 0) reusableImgs[el.getAttribute('src')] = el;
+    });
     collage.innerHTML = '';
     // Drop the previous render's hit-test tiles up front so a click or hover on
     // the empty-nest state (or a collage that hasn't laid out yet) resolves to
@@ -3303,6 +3308,13 @@
       btn.style.width = r.fullW + 'px';
       btn.style.height = r.fullH + 'px';
       btn.innerHTML = '<img loading="lazy" decoding="async" src="' + img + '" alt="' + escHtml(s.com) + '">';
+      var freshImg = btn.firstChild;
+      var keptImg = freshImg && reusableImgs[freshImg.getAttribute('src')];
+      if (keptImg) {
+        delete reusableImgs[freshImg.getAttribute('src')];
+        keptImg.alt = freshImg.alt;
+        btn.replaceChild(keptImg, freshImg);
+      }
       if (r.labelRows) {
         addLabelInk();
         // One baseline per line of the name, each riding the line the planner
@@ -6750,6 +6762,7 @@
     resetEducatorCaptureArchive();
     lockVisibleGenerateForAuth();
     adminAccessState = 'locked';
+    document.body.classList.remove('av-corrections-enabled');
     adminUnlockProbeGeneration += 1;
     adminAuthGeneration += 1;
     adminViewGeneration += 1;
@@ -7502,6 +7515,7 @@
   function renderMenu(menu, auth) {
     adminUnlockProbeGeneration += 1;
     adminAccessState = 'unlocked';
+    document.body.classList.add('av-corrections-enabled');
     adminAuthMeta = normalizeAdminAuthMeta(auth);
     adminLastActivityAt = sharedAdminActivity() || Date.now();
     scheduleAdminIdleLock();
@@ -9638,6 +9652,7 @@
     if (previousDistinctive) previousDistinctive.remove();
     document.getElementById('modalRecordings').innerHTML = '<li class="rec-empty">Loading recordings...</li>';
     document.getElementById('modalRecCount').textContent = '';
+    document.getElementById('modalCorrectionStatus').textContent = '';
     document.getElementById('modalWiki').href = wikiUrl(sci);
     var ebirdLink = document.getElementById('modalEbird');
     var ebirdHref = ebirdUrl(sci);
@@ -9706,6 +9721,9 @@
             + '<button class="rec-loop-toggle" type="button" aria-label="Repeat a selected section" aria-pressed="false">' + ICON_LOOP + '<span>loop</span></button>'
             + '</div>'
             + '</div>'
+            + (/^[a-f0-9]{64}$/.test(d.correction_key || '') && educatorDetectionId(d.detection_id)
+              ? '<button type="button" class="rec-correct" data-key="' + d.correction_key
+                + '" data-sci="' + adminAttr(sci) + '">Mark incorrect</button>' : '')
             + '</li>';
         }).join('')
         : '<li class="rec-empty">No recordings yet.</li>';
@@ -14146,8 +14164,67 @@
   }
 
   var modalRecordings = document.getElementById('modalRecordings');
+  var correctingDetection = false;
+  async function markRecordingIncorrect(button) {
+    var row = button.closest('.rec-row');
+    if (!row || adminAccessState !== 'unlocked' || correctingDetection) return;
+    var sci = button.dataset.sci;
+    var when = row.querySelector('.date-time').textContent;
+    if (!confirm('Mark the ' + sci + ' detection at ' + when + ' as incorrect?\n\n'
+      + 'This permanently removes one detection from station and listening-period counts. The recording stays on disk.')) return;
+    var status = document.getElementById('modalCorrectionStatus');
+    var request = POSTCARD_CONTENT_REQUEST;
+    var hadFocus = document.activeElement === button;
+    correctingDetection = true;
+    button.disabled = true;
+    status.textContent = 'Updating detection…';
+    try {
+      var response = await adminFetch('./avian/api/mark-incorrect.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Avian-Action': '1' },
+        body: JSON.stringify({ id: educatorDetectionId(row.dataset.detection), key: button.dataset.key }),
+      });
+      var result = await response.json();
+      var stale = response.status === 409;
+      if (!stale && (!response.ok || result.ok !== true)) throw new Error(result.error || 'Reload the recordings and try again.');
+      // Discard older in-flight snapshots, decoded audio, and cached counts.
+      // DB aggregates and Educators capture membership are computed on read.
+      var stillHere = request === POSTCARD_CONTENT_REQUEST && row.isConnected
+        && postcardModal.getAttribute('aria-hidden') === 'false';
+      resetScopedDataCaches();
+      clearEducatorCountState();
+      resetEducatorCaptureArchive();
+      educatorStateRequest += 1;
+      educatorAcceptedSignature = '';
+      refreshAll(false);
+      if (stillHere) {
+        var scope = educatorScopeRequest();
+        populatePostcard(sci, row.dataset.edu, scope.generation, scope.revision, scope.stateKey, scope.stateRevision);
+        openPostcardPanel(postcardRecordingsPanel);
+        postcardRecordingsPanel.querySelector('summary').focus();
+        status.textContent = stale ? 'The list changed. Review a recording before trying again.'
+          : 'Detection removed. Recording kept.';
+      } else if (postcardModal.getAttribute('aria-hidden') === 'false') {
+        var openPanel = postcardPanelTarget;
+        populatePostcard(document.getElementById('modalSci').textContent, activePostcardEducatorScope);
+        settlePostcardPanels(openPanel);
+      }
+    } catch (error) {
+      if (request === POSTCARD_CONTENT_REQUEST && row.isConnected) {
+        status.textContent = adminAuthCancelled(error) ? 'Unlock admin controls and reload the recordings.'
+          : error.message || 'Reload the recordings and try again.';
+      }
+    } finally {
+      correctingDetection = false;
+      button.disabled = false;
+      if (hadFocus && button.isConnected && document.activeElement === document.body
+        && adminAccessState === 'unlocked' && postcardModal.getAttribute('aria-hidden') === 'false') button.focus();
+    }
+  }
   modalRecordings.addEventListener('click', function (ev) {
     if (!ev.target.closest) return;
+    var correct = ev.target.closest('.rec-correct');
+    if (correct) { markRecordingIncorrect(correct); return; }
     var play = ev.target.closest('.rec-player-toggle');
     if (play) {
       playModalRecording(play.closest('.rec-row'));

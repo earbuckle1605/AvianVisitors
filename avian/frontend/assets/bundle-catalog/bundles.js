@@ -199,7 +199,7 @@
   let bundles = official;
   let discoveredBundles = official;
   let installedPackPresentations = [];
-  let stationRegion = cleanText(params.get("region"), 60);
+  let stationRegion = params.has("bundle") || params.has("bundles") ? "" : cleanText(params.get("region"), 60);
   let catalogError = "";
   let openBundleId = embedded && /^[a-z0-9][a-z0-9._-]{0,79}$/.test(params.get("style") || "")
     ? params.get("style") : "";
@@ -584,7 +584,7 @@
     }
   }
 
-  function bundleCommandControl(pack) {
+  function bundleCommandControl(pack, selectedIds, selectRegions) {
     const selector = typeof pack?.id === "string" &&
       /^[a-z0-9][a-z0-9._-]{0,79}$/.test(pack.id) && catalogManifestUrl(pack)
       ? pack.id : "";
@@ -598,8 +598,8 @@
     const id = "bundle-command-" + (++commandControlSequence);
     const tipId = id + "-tip";
     const commandTextId = id + "-text";
-    const command = `sudo avian-bundle use '${selector}'`;
-    trigger.setAttribute("aria-label", "Copy install command");
+    const command = () => `sudo avian-bundle use ${(selectedIds ? selectedIds() : [selector]).map(id => `'${id}'`).join(' ')}`;
+    trigger.setAttribute("aria-label", selectedIds ? "Copy install command" : "Copy install command for " + pack.region + " (" + pack.contributor + ")");
     trigger.setAttribute("aria-describedby", tipId);
     trigger.setAttribute("aria-haspopup", "dialog");
     trigger.setAttribute("aria-expanded", "false");
@@ -607,7 +607,7 @@
     const icon = document.createElement("span");
     icon.className = "bundle-command-glyph";
     icon.setAttribute("aria-hidden", "true");
-    icon.textContent = ">_";
+    icon.append(regionIcon("terminal"));
     const tip = document.createElement("span");
     tip.className = "bundle-command-tip";
     tip.id = tipId;
@@ -634,19 +634,21 @@
     option.setAttribute("aria-describedby", commandTextId);
     const code = document.createElement("code");
     code.id = commandTextId;
-    code.textContent = command;
+    code.textContent = command();
     const result = document.createElement("span");
     result.className = "bundle-command-result";
     option.append(code, result);
     let copyOperation = 0;
     let feedbackTimer = 0;
     const copy = async () => {
+      if (selectedIds && !selectedIds().length) return;
       const operation = ++copyOperation;
       if (feedbackTimer) {
         window.clearTimeout(feedbackTimer);
         feedbackTimer = 0;
       }
-      const copied = await copyCommandText(command);
+      code.textContent = command();
+      const copied = await copyCommandText(command());
       if (operation !== copyOperation) return;
       status.textContent = copied ? "Install command copied." : "Could not copy the install command.";
       result.textContent = copied ? "Copied" : "Copy failed";
@@ -668,6 +670,10 @@
     const options = [option];
     const entry = { root, trigger, popover, options };
     trigger.addEventListener("click", async () => {
+      if (selectedIds && !selectedIds().length) {
+        selectRegions?.();
+        return;
+      }
       if (activeCommandPopover === entry) {
         setCommandPopover(null, true);
         return;
@@ -1140,6 +1146,221 @@
     }
   }
 
+  const regionSelections = new Map();
+  let orderedRegionSupport = !embedded;
+  let activeRegionIds = [];
+  let requestedRegionIds = regionIdsFromUrl();
+  let openRegionChooser = null;
+
+  function validRegionIds(ids, empty = false) {
+    return Array.isArray(ids) && ids.length <= 16 && (empty || ids.length > 0) &&
+      ids.every(id => typeof id === "string" && /^[a-z0-9][a-z0-9._-]{0,79}$/.test(id)) &&
+      new Set(ids).size === ids.length;
+  }
+
+  function regionIdsFromUrl() {
+    const one = params.getAll("bundle"), many = params.getAll("bundles");
+    const ids = one.length === 1 && !many.length ? one :
+      many.length === 1 && !one.length ? many[0].split(",") : [];
+    return validRegionIds(ids) ? ids : [];
+  }
+
+  // Font Awesome Free 6.7.2 icons, CC BY 4.0.
+  function regionIcon(name) {
+    const paths = {
+      check: ["448 512", "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"],
+      down: ["512 512", "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"],
+      terminal: ["576 512", "M9.4 86.6C-3.1 74.1-3.1 53.9 9.4 41.4s32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L178.7 256 9.4 86.6zM256 416l288 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-288 0c-17.7 0-32-14.3-32-32s14.3-32 32-32z"]
+    };
+    const [box, d] = paths[name];
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 " + box);
+    svg.setAttribute("class", "bundle-region-icon");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+    return svg;
+  }
+
+  function regionAction(group, visiblePacks) {
+    const root = document.createElement("div");
+    root.className = "style-action bundle-region-picker";
+    const canUse = pack => embedded ? installablePackIds.has(pack.id) : pack.installable;
+    const choices = group.packs.filter(pack => canUse(pack));
+    const defaultPack = choices.find(pack => pack.id === activePackId) ||
+      choices.find(pack => pack.official) || choices[0];
+    let ids = regionSelections.get(group.id);
+    if (!ids) {
+      const contains = values => values.length && values.some(id => group.packs.some(pack => pack.id === id));
+      const nearby = choices.filter(pack => pack.region === stationRegion);
+      const active = activeRegionIds.length ? activeRegionIds : activePackId ? [activePackId] : [];
+      ids = (contains(requestedRegionIds) || (requestedRegionIds.length && params.get("style") === group.id))
+        ? requestedRegionIds.slice() : contains(active) ? active.slice() :
+          nearby.length === 1 ? [nearby[0].id] : choices.length === 1 ? [choices[0].id] : [];
+    }
+    const row = document.createElement("div");
+    row.className = "bundle-action-row";
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "bundle-use";
+    trigger.textContent = defaultPack ? "Use on my station" : "Unavailable";
+    trigger.disabled = !defaultPack;
+    trigger.setAttribute("aria-expanded", "false");
+    const menu = document.createElement("div");
+    menu.className = "bundle-region-menu";
+    menu.id = "bundle-regions-" + slug(group.id);
+    menu.hidden = true;
+    trigger.setAttribute("aria-controls", menu.id);
+    const options = document.createElement("div");
+    options.className = "bundle-region-options";
+    const status = document.createElement("span");
+    status.className = "bundle-region-status";
+    status.setAttribute("role", "status");
+    const confirm = document.createElement(embedded ? "button" : "a");
+    if (embedded) confirm.type = "button";
+    else confirm.tabIndex = 0;
+    confirm.className = "bundle-region-confirm";
+    confirm.textContent = "Use selected";
+    const stationBase = loopbackHost ? "http://127.0.0.1:8137/" : "http://birdnet.local/avian/";
+    const valid = () => validRegionIds(ids) && ids.every(id => choices.some(pack => pack.id === id));
+    let copyOnSelection = false;
+    const update = () => {
+      confirm.hidden = copyOnSelection;
+      const first = choices.find(pack => pack.id === ids[0]);
+      trigger.setAttribute("data-selecting", "");
+      trigger.replaceChildren();
+      const label = document.createElement("span");
+      label.textContent = first ? first.region + (ids.length > 1 ? " +" + (ids.length - 1) : "") : "Select regions";
+      trigger.append(label, regionIcon("down"));
+      if (!embedded) {
+        const url = new URL(stationBase);
+        url.searchParams.set(ids.length === 1 ? "bundle" : "bundles", ids.join(","));
+        url.searchParams.set("style", group.id);
+        url.hash = "admin=settings";
+        if (valid()) confirm.href = url.toString();
+        else confirm.removeAttribute("href");
+      }
+      if (command) {
+        command.querySelector(".bundle-command-option").disabled = !valid();
+        const code = command.querySelector("code");
+        if (code) code.textContent = `sudo avian-bundle use ${ids.map(id => `'${id}'`).join(" ")}`;
+      }
+    };
+    const close = () => {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+      if (copyOnSelection) {
+        commandTrigger.setAttribute("aria-expanded", "false");
+        commandTrigger.setAttribute("aria-controls", command.querySelector(".bundle-command-popover").id);
+        commandTrigger.setAttribute("aria-haspopup", "dialog");
+      }
+      copyOnSelection = false;
+      if (openRegionChooser?.root === root) openRegionChooser = null;
+    };
+    const command = !embedded && defaultPack ? bundleCommandControl(defaultPack, () => valid() ? ids.slice() : [],
+      () => copyOnSelection ? close() : root._openRegions(undefined, true)) : null;
+    const commandTrigger = command?.querySelector(".bundle-command-trigger");
+    if (command) command.querySelector(".bundle-command-option").disabled = !valid();
+    const missing = ids.filter(id => !choices.some(pack => pack.id === id)).map(id => ({id,
+      region: (group.packs.find(pack => pack.id === id)?.region || id) + " (unavailable)", unavailable: true}));
+    choices.concat(missing).forEach(pack => {
+      const label = document.createElement("label");
+      label.className = "bundle-region-option";
+      const field = document.createElement("input");
+      field.type = "checkbox";
+      field.className = "bundle-region-check";
+      field.value = pack.id;
+      field.checked = ids.includes(pack.id);
+      const text = document.createElement("span");
+      text.textContent = pack.region;
+      field.addEventListener("change", () => {
+        if (field.checked && !ids.includes(pack.id)) {
+          if (pack.unavailable) { field.checked = false; return; }
+          if (!orderedRegionSupport) {
+            ids = [];
+            options.querySelectorAll("input").forEach(other => { other.checked = other === field; });
+          }
+          if (ids.length >= 16) { field.checked = false; status.textContent = "Select up to 16 regions."; return; }
+          ids.push(pack.id);
+        } else if (!field.checked) ids = ids.filter(id => id !== pack.id);
+        regionSelections.set(group.id, ids.slice());
+        status.textContent = "";
+        update();
+        if (copyOnSelection && valid()) {
+          close();
+          commandTrigger.click();
+        }
+      });
+      label.append(field, text, regionIcon("check"));
+      options.append(label);
+    });
+    root._openRegions = (focusValue, copying = false) => {
+      if (!defaultPack) return;
+      openRegionChooser?.close();
+      copyOnSelection = copying;
+      openRegionChooser = {root, close, groupId: group.id, copying};
+      if (copying) {
+        setCommandPopover(null);
+        commandTrigger.setAttribute("aria-controls", menu.id);
+        commandTrigger.setAttribute("aria-expanded", "true");
+        commandTrigger.removeAttribute("aria-haspopup");
+      }
+      menu.hidden = false;
+      trigger.setAttribute("aria-expanded", "true");
+      update();
+      const fields = Array.from(options.querySelectorAll("input"));
+      (fields.find(field => field.value === focusValue) || fields[0])?.focus();
+    };
+    trigger.addEventListener("click", () => {
+      if (!menu.hidden) { close(); return; }
+      root._openRegions();
+    });
+    root.addEventListener("keydown", event => {
+      if (event.key !== "Escape" || menu.hidden) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const opener = copyOnSelection ? commandTrigger : trigger;
+      close();
+      opener.focus();
+    });
+    confirm.addEventListener("click", event => {
+      if (!valid() || (ids.length > 1 && !orderedRegionSupport)) {
+        event.preventDefault();
+        status.textContent = ids.length ? "A selected region is unavailable." : "Select a region.";
+        return;
+      }
+      if (embedded) {
+        if (!handoff || !parentOrigin) return;
+        window.parent.postMessage(orderedRegionSupport ?
+          {v: 1, type: "avianvisitors:bundle-selection", handoff, ids: ids.slice()} :
+          {v: 1, type: "avianvisitors:bundle-install", handoff, id: ids[0]}, parentOrigin);
+      }
+    });
+    row.append(trigger);
+    if (command) row.append(command);
+    menu.append(options, confirm, status);
+    root.append(row, menu);
+    return root;
+  }
+
+  window.addEventListener("pointerdown", event => {
+    if (openRegionChooser && !openRegionChooser.root.contains(event.target)) openRegionChooser.close();
+  });
+  window.addEventListener("message", event => {
+    const data = event.data;
+    if (!embedded || event.source !== window.parent || event.origin !== parentOrigin ||
+        !exactMessage(data, ["v", "type", "handoff", "capability", "activeIds", "requestedIds"]) ||
+        data.v !== 1 || data.handoff !== handoff || data.type !== "avianvisitors:bundle-selection-state" ||
+        data.capability !== "ordered-regions-v1" || !validRegionIds(data.activeIds, true) ||
+        !validRegionIds(data.requestedIds, true)) return;
+    orderedRegionSupport = true;
+    activeRegionIds = data.activeIds.slice();
+    requestedRegionIds = data.requestedIds.slice();
+    render();
+  });
+
   function stylePanel(group, open, visiblePacks) {
     const collapse = document.createElement("div");
     collapse.className = "style-collapse";
@@ -1239,65 +1460,7 @@
     }
     info.append(regions);
 
-    const action = document.createElement("div");
-    action.className = "style-action";
-    const canUse = (pack) => embedded ? installablePackIds.has(pack.id) : pack.installable;
-    const activeTarget = visiblePacks.find((pack) => pack.id === activePackId);
-    const target = activeTarget
-      || visiblePacks.find((pack) => installedPackIds.has(pack.id) && canUse(pack))
-      || visiblePacks.find((pack) => pack.official && canUse(pack))
-      || visiblePacks.find((pack) => canUse(pack));
-    if (target) {
-      const actionRow = document.createElement("div");
-      actionRow.className = "bundle-action-row";
-      if (embedded) {
-        const use = document.createElement("button");
-        use.type = "button";
-        use.className = "bundle-use";
-        const canRefresh = activeTarget && target.id !== "official-western-us-woodblock" && canUse(target);
-        if (activeTarget && !canRefresh) {
-          use.textContent = "Currently in use";
-          use.disabled = true;
-          use.setAttribute("data-current", "");
-        } else {
-          if (canRefresh) use.textContent = "Refresh local birds";
-          else use.innerHTML = "Use on my local station <span aria-hidden=\"true\">↗</span>";
-          use.addEventListener("click", () => {
-            if (!handoff || !parentOrigin) return;
-            window.parent.postMessage({
-              v: 1,
-              type: "avianvisitors:bundle-install",
-              id: target.id,
-              handoff,
-            }, parentOrigin);
-          });
-        }
-        actionRow.append(use);
-      } else {
-        const use = document.createElement("a");
-        use.className = "bundle-use";
-        const stationBase = loopbackHost ? "http://127.0.0.1:8137/" : "http://birdnet.local/avian/";
-        const handoffUrl = new URL(stationBase);
-        handoffUrl.searchParams.set("bundle", target.id);
-        handoffUrl.searchParams.set("style", group.id);
-        use.href = handoffUrl.toString();
-        use.innerHTML = "Use on my local station <span aria-hidden=\"true\">↗</span>";
-        actionRow.append(use);
-        const command = bundleCommandControl(target);
-        if (command) actionRow.append(command);
-      }
-      action.append(actionRow);
-    } else if (visiblePacks.length &&
-        (embedded || visiblePacks.some((pack) => pack.availability === "unavailable"))) {
-      const unavailable = document.createElement("button");
-      unavailable.type = "button";
-      unavailable.className = "bundle-use";
-      unavailable.textContent = "Unavailable";
-      unavailable.disabled = true;
-      unavailable.setAttribute("data-unavailable", "");
-      action.append(unavailable);
-    }
-    info.append(action);
+    info.append(regionAction(group, visiblePacks));
     layout.append(visual, info);
     body.append(layout);
     inner.append(body);
@@ -1387,6 +1550,9 @@
   }
 
   function render() {
+    const reopen = openRegionChooser ? {id: openRegionChooser.groupId, copying: openRegionChooser.copying,
+      focus: openRegionChooser.root.contains(document.activeElement) ? document.activeElement.value : null} : null;
+    openRegionChooser?.close();
     const plan = searchPlan(search.value);
     syncSearchGuidance(plan);
     const visiblePacks = filteredBundles(plan);
@@ -1422,6 +1588,7 @@
     });
     downloadedStyles.concat(remainingStyles).forEach((group) =>
       catalog.append(cardForStyle(group, visibleByStyle.get(group.id) || [])));
+    if (reopen) document.getElementById("bundle-regions-" + slug(reopen.id))?.parentNode?._openRegions(reopen.focus, reopen.copying);
     if (openBundleId) {
       const panel = document.getElementById("style-panel-" + slug(openBundleId));
       if (panel) requestAnimationFrame(() => mountGallery(panel));
