@@ -160,6 +160,7 @@ $items = [
         ['label' => 'system',   'href' => '/#admin=system',   'native' => true],
         ['label' => 'logs',     'href' => '/#admin=logs',     'native' => true],
         ['label' => 'tools',    'href' => '/#admin=tools',    'native' => true],
+        ['label' => 'tools 2',  'href' => '/#admin=tools',    'native' => true],
 ];
 if (!empty($educatorProfile['valid']) && !empty($educatorProfile['enabled'])) {
     $items[] = [

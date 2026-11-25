@@ -6410,7 +6410,7 @@
   var adminUnlockProbeGeneration = 0;
   var pendingAdminNotice = null;
   var adminChannel = null;
-  var educatorsAvailable = false;
+  var educatorsAvailable = true;
 
   try {
     if (window.BroadcastChannel) adminChannel = new BroadcastChannel('avian-admin-auth');
